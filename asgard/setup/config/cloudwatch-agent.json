@@ -1,0 +1,25 @@
+{
+  "agent": { "metrics_collection_interval": 300, "run_as_user": "root" },
+  "metrics": {
+    "append_dimensions": { "InstanceId": "${aws:InstanceId}" },
+    "metrics_collected": {
+      "disk": { "measurement": ["used_percent"], "resources": ["/"], "metrics_collection_interval": 300 },
+      "mem": { "measurement": ["mem_used_percent"], "metrics_collection_interval": 300 },
+      "swap": { "measurement": ["swap_used_percent"], "metrics_collection_interval": 300 }
+    }
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          { "file_path": "/var/log/asgard-setup.log", "log_group_name": "/asgard/setup", "log_stream_name": "{instance_id}", "retention_in_days": 30 },
+          { "file_path": "/var/log/nginx/error.log", "log_group_name": "/asgard/nginx-error", "log_stream_name": "{instance_id}", "retention_in_days": 30 },
+          { "file_path": "/var/log/nginx/foundry/error.log", "log_group_name": "/asgard/nginx-foundry-error", "log_stream_name": "{instance_id}", "retention_in_days": 30 },
+          { "file_path": "/var/log/letsencrypt/letsencrypt.log", "log_group_name": "/asgard/letsencrypt", "log_stream_name": "{instance_id}", "retention_in_days": 30 },
+          { "file_path": "/home/axis/kotw/logs/combined.log", "log_group_name": "/asgard/kotw", "log_stream_name": "{instance_id}", "retention_in_days": 14 },
+          { "file_path": "/home/axis/.pm2/logs/*.log", "log_group_name": "/asgard/pm2", "log_stream_name": "{instance_id}", "retention_in_days": 14 }
+        ]
+      }
+    }
+  }
+}
