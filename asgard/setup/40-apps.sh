@@ -23,8 +23,12 @@ fi
 [ "$(node_major)" = "${NODE_MAJOR}" ] || { echo "ERROR: node is $(node -v 2>&1), wanted major ${NODE_MAJOR}"; exit 1; }
 node --version
 npm install -g pm2
+# Amazon's npm may already link global binaries into /usr/bin; linking /usr/bin/pm2 onto itself would create a loop.
 PM2_BIN="$(command -v pm2)"
-ln -sf "${PM2_BIN}" /usr/bin/pm2 2>/dev/null || true
+if [ "${PM2_BIN}" != "/usr/bin/pm2" ]; then
+  ln -sf "${PM2_BIN}" /usr/bin/pm2
+fi
+/usr/bin/pm2 --version >/dev/null || { echo "ERROR: /usr/bin/pm2 is not runnable"; exit 1; }
 
 # --- PM2 as a systemd service for axis (generic: no Node path baked in) ---
 cat > /etc/systemd/system/pm2-axis.service <<'EOF'

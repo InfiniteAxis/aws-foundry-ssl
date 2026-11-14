@@ -1,6 +1,8 @@
 #!/bin/bash
 # Asgard setup orchestrator (DRAFT, UNTESTED). Runs as root from cloud-init user data.
 set -euo pipefail
+# cloud-init can run with a restrictive umask; npm/pip/cat installs would then be root-only (pm2 was). Secrets set their own modes.
+umask 022
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 LOG=/var/log/asgard-setup.log
