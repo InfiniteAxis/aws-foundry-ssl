@@ -4,19 +4,27 @@ set -euo pipefail
 source /root/asgard/variables.sh
 NODE_MAJOR="${NODE_APPS_MAJOR:-24}"
 
-# --- NodeSource repo, written by hand with signature checking on (no curl|bash) ---
-cat > /etc/yum.repos.d/nodesource-nodejs.repo <<EOF
-[nodesource-nodejs]
-name=Node.js ${NODE_MAJOR}.x
-baseurl=https://rpm.nodesource.com/pub_${NODE_MAJOR}.x/nodistro/nodejs/\$basearch
-gpgcheck=1
-gpgkey=https://rpm.nodesource.com/gpgkey/ns-operations-public.key
-enabled=1
-module_hotfixes=1
-EOF
-dnf install -y nodejs
+# --- Node for the apps: Amazon Linux 2023's own versioned packages (nodejs20/22/24), no third-party repo ---
+# (NodeSource lost to Amazon's `nodejs` 18 because RPM compares epoch first: 1:18.x beats 24.x.)
+dnf install -y "nodejs${NODE_MAJOR}" "nodejs${NODE_MAJOR}-npm"
+node_major() { node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo none; }
+if [ "$(node_major)" != "${NODE_MAJOR}" ]; then
+  # versioned packages ship /usr/bin/node-<major>; point `node`/`npm` at the requested one
+  if alternatives --display node >/dev/null 2>&1; then
+    alternatives --set node "/usr/bin/node-${NODE_MAJOR}" || true
+    alternatives --set npm "/usr/bin/npm-${NODE_MAJOR}" 2>/dev/null || true
+  fi
+fi
+if [ "$(node_major)" != "${NODE_MAJOR}" ]; then
+  ln -sf "/usr/bin/node-${NODE_MAJOR}" /usr/local/bin/node
+  ln -sf "/usr/bin/npm-${NODE_MAJOR}" /usr/local/bin/npm
+  hash -r
+fi
+[ "$(node_major)" = "${NODE_MAJOR}" ] || { echo "ERROR: node is $(node -v 2>&1), wanted major ${NODE_MAJOR}"; exit 1; }
 node --version
 npm install -g pm2
+PM2_BIN="$(command -v pm2)"
+ln -sf "${PM2_BIN}" /usr/bin/pm2 2>/dev/null || true
 
 # --- PM2 as a systemd service for axis (generic: no Node path baked in) ---
 cat > /etc/systemd/system/pm2-axis.service <<'EOF'
