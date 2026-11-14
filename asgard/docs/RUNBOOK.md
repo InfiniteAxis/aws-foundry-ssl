@@ -9,13 +9,14 @@ The old `Valhalla` stack is never updated in place and is retired last.
 ## 0. Prerequisites
 
 - The repo is the GitLab import of the `aws-foundry-ssl` fork (`RepoUrl` default `https://gitlab.com/valhalla-software/aws-foundry-ssl.git`, **confirm the real path**), with this folder at `asgard/` (`SetupPath` default `asgard/setup`). Push the `asgard/` changes to the branch named in `RepoBranch` (default `main`). In that project create a **deploy token** (Settings > Repository > Deploy tokens, scope `read_repository`, expiry a few days) and pass its name/value as `GitDeployUser` / `GitDeployToken`. Revoke it once the instance has cloned.
-- Fresh Foundry download link (time-limited) from foundryvtt.com. It appears in the instance's user data, so let it expire.
+- Foundry download links expire in ~5 minutes, shorter than the build. Leave `FoundryDownloadLink` EMPTY. When setup finishes, generate a fresh Linux/Node link on foundryvtt.com and run `sudo /usr/local/sbin/asgard-install-foundry '<link>'` on the box.
 - Create SSM parameters in us-east-2 (the box can read `/asgard/*` only):
   - `/asgard/kotw/env-local` (SecureString): full contents of kotw's `.env.local`, including `MANDALOR_DISCORD_USER_ID`.
   - `/asgard/claude-ops-pubkey` (String, optional): public key for the read-only `claude-ops` account.
 - Foundry moves to **v14** on Asgard (decided; Degenesis and CPRed campaigns are paused). `FoundryNodeVersion` defaults to 24.22.1 (v14 minimum); use the newest 24.x patch at deploy time.
 - Do the 12 -> 14 world migration **on Asgard, never on Valhalla**, so the old box stays a clean rollback. Foundry has historically migrated worlds one major generation at a time, so plan on: install v13 first, open each world to migrate it, update systems/modules to v13-compatible versions, then update to v14 and migrate again. **Verify the supported path on foundryvtt.com (Migration/Updating articles) before starting;** I could not confirm whether 12 -> 14 is allowed directly. Foundry also makes automatic world backups before major migrations; keep them.
-- Before migrating, take a Foundry data backup (`/foundrydata`) and an EBS snapshot of Asgard. Check that Degenesis and CPRed system/module versions exist for v14; if they don't, keep those worlds unmigrated and offline until they do.
+- Before migrating, take a Foundry data backup (`/foundrydata`) and an EBS snapshot of Asgard.
+- **Compatibility (checked 2026-11-11):** Degenesis (`the-silent-epidemic`) is verified on v14: migrate it. The Cyberpunk RED system is NOT v14-compatible (last verified on v12): **do not copy the CPRed world into Asgard's data, and never open/migrate it on v14.** Archive it instead (tarball of the world folder, the CPRed system folder and its module list) to S3 before Valhalla is retired. If CPRed is ever needed before it gets v14 support, deploy a second small stack from this same template with `FoundryNodeVersion=20.20.2` and a Foundry 12.x download link, then restore the archive there.
 - Static IP / DNS: the new stack makes its **own** Elastic IP. Cutover is a DNS change, not an EIP move.
 
 ## 1. Trial deploy

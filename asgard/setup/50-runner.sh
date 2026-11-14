@@ -6,20 +6,26 @@ source /root/asgard/variables.sh
 
 # --- repo with the pinned package-signing key (fingerprint verified, not trusted blindly) ---
 EXPECTED_FPR="931DA69CFA3AFEBBC97DAA8C6C57C29C6BA75A4E"   # runner package key, expires 2027-02-26 -> re-check then
+# The documented package-signing key lives at its own URL (the generic .../gpgkey file holds other keys).
+KEYFILE=/etc/pki/rpm-gpg/RPM-GPG-KEY-gitlab-runner
 TMPK="$(mktemp)"
-curl -fsSL https://packages.gitlab.com/runner/gitlab-runner/gpgkey -o "${TMPK}"
+curl -fsSL https://packages.gitlab.com/runner/gitlab-runner/gpgkey/runner-gitlab-runner-49F16C5CC3A0F81F.pub.gpg -o "${TMPK}"
 GOT="$(gpg --show-keys --with-colons "${TMPK}" | awk -F: '$1=="fpr"{print $10}' | tr '\n' ' ')"
 echo "key fingerprints offered: ${GOT}"
 echo "${GOT}" | grep -q "${EXPECTED_FPR}" || { echo "GitLab runner key mismatch: aborting"; exit 1; }
+install -m 644 "${TMPK}" "${KEYFILE}"
 rm -f "${TMPK}"
+rpm --import "${KEYFILE}"
+# Packages are verified (gpgcheck=1) against the pinned local key. Repo-metadata signing (repo_gpgcheck) is
+# off on purpose: its key is not pinned here, and the package signature is what protects what gets installed.
 cat > /etc/yum.repos.d/gitlab-runner.repo <<'EOF'
 [gitlab-runner]
 name=gitlab-runner
 baseurl=https://packages.gitlab.com/runner/gitlab-runner/amazon/2023/$basearch
-repo_gpgcheck=1
+repo_gpgcheck=0
 gpgcheck=1
 enabled=1
-gpgkey=https://packages.gitlab.com/runner/gitlab-runner/gpgkey
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-gitlab-runner
 EOF
 dnf install -y gitlab-runner
 systemctl disable --now gitlab-runner.service || true   # stays off until registration at cutover

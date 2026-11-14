@@ -26,14 +26,25 @@ tar -xJf "${TMP}/${TARBALL}" -C "${NODE_DIR}"
 ln -sfn "${NODE_DIR}/node-v${NV}-linux-arm64" "${NODE_DIR}/current"
 "${NODE_DIR}/current/bin/node" --version
 
-# --- Foundry application ---
+# --- Foundry application installer ---
+# Foundry's download links live only ~5 minutes, which is shorter than this build. So the link is OPTIONAL
+# at build time: if it is missing or has expired, install later with a fresh link:
+#   sudo asgard-install-foundry '<fresh Linux/Node download URL>'
+cat > /usr/local/sbin/asgard-install-foundry <<'EOF'
+#!/bin/bash
+set -euo pipefail
+URL="${1:?usage: asgard-install-foundry '<fresh Foundry Linux/Node download URL>'}"
 INSTALL=/home/foundry/foundry-install
-if [ ! -f "${INSTALL}/main.js" ]; then
-  install -d -o foundry -g foundry "${INSTALL}"
-  curl -fsSL "${FOUNDRY_DOWNLOAD_LINK}" -o "${TMP}/foundry.zip"
-  unzip -q "${TMP}/foundry.zip" -d "${INSTALL}"
-  chown -R foundry:foundry "${INSTALL}"
-fi
+TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT
+curl -fsSL "$URL" -o "$TMPD/foundry.zip"
+systemctl stop foundry 2>/dev/null || true
+rm -rf "$INSTALL"; install -d -o foundry -g foundry "$INSTALL"
+unzip -q "$TMPD/foundry.zip" -d "$INSTALL"
+chown -R foundry:foundry "$INSTALL"
+systemctl enable --now foundry
+echo "Foundry installed and started."
+EOF
+chmod 755 /usr/local/sbin/asgard-install-foundry
 
 # --- data dir and config (no secrets in the config; S3 uses the instance role) ---
 install -d -o foundry -g foundry -m 750 /foundrydata /foundrydata/Config /foundrydata/Data /foundrydata/Logs
@@ -97,6 +108,7 @@ EOF
 # --- health check: restart Foundry if the API stops answering ---
 cat > /usr/local/sbin/foundry-healthcheck <<'EOF'
 #!/bin/bash
+[ -f /home/foundry/foundry-install/main.js ] || exit 0   # not installed yet
 for i in 1 2; do
   curl -fsS --max-time 10 http://127.0.0.1:30000/api/status >/dev/null && exit 0
   sleep 15
@@ -123,4 +135,11 @@ WantedBy=timers.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now foundry.service foundry-healthcheck.timer
+systemctl enable foundry.service
+systemctl enable --now foundry-healthcheck.timer
+if [ -n "${FOUNDRY_DOWNLOAD_LINK:-}" ]; then
+  /usr/local/sbin/asgard-install-foundry "${FOUNDRY_DOWNLOAD_LINK}" \
+    || echo "WARNING: Foundry download failed (link expired?). Install later: sudo asgard-install-foundry '<fresh link>'"
+else
+  echo "No Foundry link given. When ready run: sudo asgard-install-foundry '<fresh link>'"
+fi

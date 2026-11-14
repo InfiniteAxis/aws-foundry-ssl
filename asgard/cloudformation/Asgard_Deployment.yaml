@@ -70,8 +70,9 @@ Parameters:
     Description: "Use the Let's Encrypt staging CA for trial runs (avoids rate limits)."
   FoundryDownloadLink:
     Type: String
+    Default: ""
     NoEcho: true
-    Description: "Time-limited Foundry 'Linux/Node' download URL from foundryvtt.com. (Visible in instance user data; it expires.)"
+    Description: "OPTIONAL. Foundry links expire in ~5 minutes, shorter than the build, so leave this empty and run 'sudo asgard-install-foundry <fresh link>' on the box once setup finishes."
   FoundryNodeVersion:
     Type: String
     Default: "24.22.1"
@@ -308,7 +309,7 @@ Resources:
       State: ENABLED
       ExecutionRoleArn: !GetAtt DlmRole.Arn
       PolicyDetails:
-        ResourceType: INSTANCE
+        ResourceTypes: [INSTANCE]
         TargetTags: [{ Key: Snapshot, Value: "true" }]
         Schedules:
           - Name: Weekly
