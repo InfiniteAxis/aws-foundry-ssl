@@ -78,6 +78,6 @@ chown gitlab-lint:gitlab-lint /etc/gitlab-runner-lint/config.toml
 gitlab-runner install --user gitlab-lint --working-directory /home/gitlab-lint/builds \
   --config /etc/gitlab-runner-lint/config.toml --service gitlab-runner-lint
 systemctl enable --now gitlab-runner-lint
-gitlab-runner list; sudo -l -U gitlab-lint | tail -3
+systemctl is-active gitlab-runner gitlab-runner-lint; sudo -l -U gitlab-lint | tail -3
 EOF
 chmod 755 /usr/local/sbin/asgard-register-runners
